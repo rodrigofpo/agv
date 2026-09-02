@@ -93,8 +93,9 @@ _ide_legacy_version() {
 _ide_detect_latest_url() {
     local page
     local url
+    local user_agent="Mozilla/5.0 (X11; Linux $(uname -m))"
 
-    page="$(curl -fsSL "${IDE_DOWNLOAD_PAGE}" 2>/dev/null || true)"
+    page="$(curl --compressed -A "${user_agent}" -fsSL "${IDE_DOWNLOAD_PAGE}" 2>/dev/null || true)"
     url="$(printf '%s' "${page}" \
         | grep -oE 'https://edgedl\.me\.gvt1\.com/[^"[:space:]]*/linux-x64/Antigravity%20IDE\.tar\.gz' \
         | head -n 1 || true)"
