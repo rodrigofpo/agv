@@ -1,0 +1,5 @@
+*.rpm
+*.deb
+/dist/
+*.tmp
+.DS_Store

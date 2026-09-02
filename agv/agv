@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+
+SOURCE="${BASH_SOURCE[0]}"
+while [[ -h "${SOURCE}" ]]; do
+    DIR="$(cd -P "$(dirname "${SOURCE}")" >/dev/null 2>&1 && pwd)"
+    SOURCE="$(readlink "${SOURCE}")"
+    [[ "${SOURCE}" != /* ]] && SOURCE="${DIR}/${SOURCE}"
+done
+AGV_HOME="$(cd -P "$(dirname "${SOURCE}")" >/dev/null 2>&1 && pwd)"
+
+# shellcheck source=lib/common.sh
+source "${AGV_HOME}/lib/common.sh"
+
+for plugin_file in "${AGV_HOME}"/plugins/*.sh; do
+    [[ -f "${plugin_file}" ]] || continue
+    # shellcheck source=/dev/null
+    source "${plugin_file}"
+done
+
+usage() {
+    cat <<'EOF'
+Uso: agv <ação> [produto]
+
+Ações padrão:
+  install      Instala um produto
+  update       Atualiza um produto
+  status       Exibe o estado de instalação
+  uninstall    Desinstala um produto
+  list         Lista os produtos disponíveis
+  help         Exibe esta ajuda
+
+Produtos:
+EOF
+
+    local name
+    for name in "${AGV_PLUGIN_NAMES[@]}"; do
+        printf '  %-12s %s\n' "${name}" "${AGV_PLUGIN_DESC[${name}]}"
+    done
+}
+
+list_plugins() {
+    local name
+    for name in "${AGV_PLUGIN_NAMES[@]}"; do
+        printf '%-12s %s\n' "${name}" "${AGV_PLUGIN_DESC[${name}]}"
+    done
+}
+
+plugin_registered() {
+    local wanted="$1"
+    local name
+
+    for name in "${AGV_PLUGIN_NAMES[@]}"; do
+        [[ "${name}" == "${wanted}" ]] && return 0
+    done
+
+    return 1
+}
+
+dispatch_one() {
+    local action="$1"
+    local product="$2"
+    local func="${product}_${action//-/_}"
+
+    if ! plugin_registered "${product}"; then
+        c_err "Produto desconhecido: ${product}"
+        return 1
+    fi
+
+    if ! declare -F "${func}" >/dev/null; then
+        c_err "A ação '${action}' não está disponível para o produto '${product}'."
+        return 1
+    fi
+
+    "${func}"
+}
+
+main() {
+    local action="${1:-}"
+    local product="${2:-}"
+    local name
+    local func
+    local handled=0
+    local result=0
+
+    case "${action}" in
+        ""|help|-h|--help)
+            usage
+            return 0
+            ;;
+        list)
+            list_plugins
+            return 0
+            ;;
+    esac
+
+    if [[ -n "${product}" ]]; then
+        dispatch_one "${action}" "${product}"
+        return $?
+    fi
+
+    for name in "${AGV_PLUGIN_NAMES[@]}"; do
+        func="${name}_${action//-/_}"
+        if declare -F "${func}" >/dev/null; then
+            handled=1
+            "${func}" || result=$?
+        fi
+    done
+
+    if (( handled == 0 )); then
+        c_err "Nenhum produto implementa a ação '${action}'."
+        return 1
+    fi
+
+    return "${result}"
+}
+
+main "$@"
