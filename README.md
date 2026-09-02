@@ -1,4 +1,4 @@
-# agv
+# AGV - AntiGravity Version
 
 `agv` é um gerenciador simples para as três formas de distribuição do Google
 Antigravity no Linux: IDE, CLI `agy` e SDK Python. O projeto também contorna o
